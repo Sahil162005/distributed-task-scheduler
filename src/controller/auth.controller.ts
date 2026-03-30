@@ -5,7 +5,6 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 export const SignUp= async(req:Request,res:Response)=>{
-    console.log("SignUp controller running", req.body);
     const {email,password,name}=req.body
     try{
         const user= await CreateUser(email,password,name);
