@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import type { Request ,Response } from "express";
 import authRoutes from './routes/authroutes.js'
 import jobRoutes from './routes/jobroutes.js'
+import "./worker/worker.js"
 dotenv.config();
 const app=express();
 const PORT=process.env.PORT || 5000;
