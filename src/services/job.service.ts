@@ -29,4 +29,13 @@ export const getJobById = async (id: string) => {
     });
 };
 
+export const getJobsByUserId = async (userId: string) => {
+    return prisma.job.findMany({
+        where: { user_id: userId },
+        orderBy: {
+            created_at: "desc",
+        },
+    });
+};
+
 export default createNewJob;

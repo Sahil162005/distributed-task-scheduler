@@ -1,5 +1,6 @@
 import { createNewJob } from "../services/job.service.js";
 import { getJobById } from "../services/job.service.js";
+import { getJobsByUserId } from "../services/job.service.js";
 import type{ Request ,Response } from "express";
 
 type JobType = "SEND_EMAIL" | "SEND_MESSAGE";
@@ -26,7 +27,8 @@ export const CreateJob=async(req:Request,res:Response)=>{
 
 export const GetJobById = async (req: Request, res: Response) => {
     const userId = req.user?.id;
-    const jobId = req.params.id;
+    const rawJobId = req.params.id;
+    const jobId = Array.isArray(rawJobId) ? rawJobId[0] : rawJobId;
 
     if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -49,6 +51,22 @@ export const GetJobById = async (req: Request, res: Response) => {
         return res.status(200).json({ job });
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Unable to fetch job";
+        return res.status(400).json({ message: errorMessage });
+    }
+};
+
+export const GetMyJobs = async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+        const jobs = await getJobsByUserId(userId);
+        return res.status(200).json({ jobs });
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Unable to fetch jobs";
         return res.status(400).json({ message: errorMessage });
     }
 };
