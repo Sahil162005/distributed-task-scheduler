@@ -1,0 +1,51 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+enum Status{
+PENDING
+COMPLETED
+FAILED
+PROCESSING
+RETRYING
+}
+enum JobType{
+SEND_EMAIL
+SEND_MESSAGE
+}
+
+model User {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String
+  role       Role     @default(USER)
+  created_at DateTime @default(now())
+  jobs Job[]
+
+  @@map("users")
+}
+model Job{
+id  String   @id @default(uuid())
+user_id String 
+user  User @ relation(fields:[user_id],references:[id])
+job_type JobType
+payload  Json
+ status Status @default(PENDING)
+ retry_count Int @default(0)
+ max_retries Int @default(3)
+ created_at DateTime @default(now())
+ started_at DateTime?
+ completed_at DateTime?
+ result Json?
+ error String?
+@@map("jobs")
+}
