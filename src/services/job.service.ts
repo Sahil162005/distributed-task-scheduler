@@ -1,11 +1,13 @@
 import prisma from "../database/prisma.js";
 import { jobQueue } from "../queue/queue.js";
 
-export const createNewJob = async (user_id: string, payload: any, job_type: string) => {
+type JobType = "SEND_EMAIL" | "SEND_MESSAGE";
+
+export const createNewJob = async (user_id: string, payload: unknown, job_type: JobType) => {
     const job = await prisma.job.create({
         data: {
             job_type,
-            payload,
+            payload: payload as object,
             user_id,
         },
     });
@@ -19,6 +21,12 @@ export const createNewJob = async (user_id: string, payload: any, job_type: stri
     });
 
     return job;
+};
+
+export const getJobById = async (id: string) => {
+    return prisma.job.findUnique({
+        where: { id },
+    });
 };
 
 export default createNewJob;

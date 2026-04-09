@@ -2,7 +2,6 @@ import { CreateUser } from "../services/auth.service.js";
 import { LoginUser} from "../services/auth.service.js";
 import type{ Request ,Response } from "express";
 import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
 
 export const SignUp= async(req:Request,res:Response)=>{
     const {email,password,name}=req.body
@@ -10,8 +9,9 @@ export const SignUp= async(req:Request,res:Response)=>{
         const user= await CreateUser(email,password,name);
         return res.status(201).json({message:"Account created"});
     }
-    catch(err:any){
-       return res.status(400).json({message:err.message});
+    catch(err: unknown){
+        const errorMessage = err instanceof Error ? err.message : "Unable to create account";
+       return res.status(400).json({message:errorMessage});
     }
 }
 export const Login=async(req:Request,res:Response)=>{
@@ -27,9 +27,16 @@ export const Login=async(req:Request,res:Response)=>{
             role:user.role
         }
         const token= jwt.sign(payload,secret, {expiresIn: '24h'});
-        return res.status(200).json({user,token});
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 24 * 60 * 60 * 1000,
+        });
+        return res.status(200).json({user, token});
     }
-    catch(err:any){
-        return res.status(400).json({message:err.message});
+    catch(err: unknown){
+        const errorMessage = err instanceof Error ? err.message : "Unable to login";
+        return res.status(400).json({message:errorMessage});
     }
 }

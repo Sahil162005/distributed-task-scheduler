@@ -5,11 +5,19 @@ const isValidEmail= (email:string)=>{
     const result= valid.test(email);
     return result
 }
-const validateSendEmail=(payload:any)=>{
-    const to= payload.to;
-    const subject=payload.subject;
-    const body=payload.body;
+const validateSendEmail=(payload: unknown)=>{
+    if (typeof payload !== "object" || payload === null) {
+        return "Fill all the fields";
+    }
+
+    const value = payload as Record<string, unknown>;
+    const to= value.to;
+    const subject=value.subject;
+    const body=value.body;
     if(!to||!subject||!body){
+        return "Fill all the fields";
+    }
+    if(typeof to !== "string" || typeof subject !== "string" || typeof body !== "string"){
         return "Fill all the fields";
     }
     if(!isValidEmail(to)){
@@ -18,10 +26,18 @@ const validateSendEmail=(payload:any)=>{
     
     return null
 }
-const validateSendMessage=(payload:any)=>{
-    const chatId = payload.chatId
-    const message = payload.message
+const validateSendMessage=(payload: unknown)=>{
+    if (typeof payload !== "object" || payload === null) {
+        return "Fill all the fields";
+    }
+
+    const value = payload as Record<string, unknown>;
+    const chatId = value.chatId
+    const message = value.message
     if(!chatId||!message){
+        return "Fill all the fields"
+    }
+    if(typeof chatId !== "string" || typeof message !== "string"){
         return "Fill all the fields"
     }
     return null

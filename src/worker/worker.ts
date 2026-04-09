@@ -1,8 +1,10 @@
 import { Worker } from "bullmq";
 import type { Job } from "bullmq";
 import type { RedisOptions } from "ioredis";
-import { Status } from "@prisma/client";
+import TelegramBot from "node-telegram-bot-api";
+import { Resend } from "resend";
 import prisma from "../database/prisma.js";
+import { emitJobStatusUpdate } from "../socket/io.js";
 
 type WorkerJobData = {
     id: string;
@@ -10,26 +12,144 @@ type WorkerJobData = {
     payload: unknown;
 };
 
-const redisConnection: RedisOptions = {
-    host: "localhost",
-    port: 6379,
+type SendEmailPayload = {
+    to: string;
+    subject: string;
+    body: string;
+};
+
+type SendMessagePayload = {
+    chatId: string;
+    message: string;
+};
+
+const getRedisConnection = (): RedisOptions => {
+    const redisUrl = process.env.REDIS_URL;
+
+    if (!redisUrl) {
+        return {
+            host: "localhost",
+            port: 6379,
+        };
+    }
+
+    const parsedUrl = new URL(redisUrl);
+
+    return {
+        host: parsedUrl.hostname,
+        port: Number(parsedUrl.port || "6379"),
+        username: parsedUrl.username || undefined,
+        password: parsedUrl.password || undefined,
+    };
+};
+
+const redisConnection = getRedisConnection();
+
+const parseSendEmailPayload = (payload: unknown): SendEmailPayload => {
+    if (typeof payload !== "object" || payload === null) {
+        throw new Error("Invalid SEND_EMAIL payload");
+    }
+
+    const value = payload as Record<string, unknown>;
+
+    if (
+        typeof value.to !== "string" ||
+        typeof value.subject !== "string" ||
+        typeof value.body !== "string"
+    ) {
+        throw new Error("Invalid SEND_EMAIL payload fields");
+    }
+
+    return {
+        to: value.to,
+        subject: value.subject,
+        body: value.body,
+    };
+};
+
+const parseSendMessagePayload = (payload: unknown): SendMessagePayload => {
+    if (typeof payload !== "object" || payload === null) {
+        throw new Error("Invalid SEND_MESSAGE payload");
+    }
+
+    const value = payload as Record<string, unknown>;
+
+    if (typeof value.chatId !== "string" || typeof value.message !== "string") {
+        throw new Error("Invalid SEND_MESSAGE payload fields");
+    }
+
+    return {
+        chatId: value.chatId,
+        message: value.message,
+    };
 };
 
 const processJobByType = async (jobData: WorkerJobData) => {
     switch (jobData.job_type) {
-        case "SEND_EMAIL":
+        case "SEND_EMAIL": {
+            const resendApiKey = process.env.RESEND_API_KEY;
+            const fromEmail = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+
+            if (!resendApiKey) {
+                throw new Error("RESEND_API_KEY is missing");
+            }
+
+            const payload = parseSendEmailPayload(jobData.payload);
+            const resend = new Resend(resendApiKey);
+
+            await resend.emails.send({
+                from: fromEmail,
+                to: [payload.to],
+                subject: payload.subject,
+                html: payload.body,
+            });
+
             return {
-                message: "SEND_EMAIL processed",
-                payload: jobData.payload,
+                message: "Email sent successfully",
+                to: payload.to,
             };
-        case "SEND_MESSAGE":
+        }
+        case "SEND_MESSAGE": {
+            const token = process.env.TELEGRAM_BOT_TOKEN;
+
+            if (!token) {
+                throw new Error("TELEGRAM_BOT_TOKEN is missing");
+            }
+
+            const payload = parseSendMessagePayload(jobData.payload);
+            const bot = new TelegramBot(token, { polling: false });
+
+            await bot.sendMessage(payload.chatId, payload.message);
+
             return {
-                message: "SEND_MESSAGE processed",
-                payload: jobData.payload,
+                message: "Message sent successfully",
+                chatId: payload.chatId,
             };
+        }
         default:
             throw new Error("Unsupported job type");
     }
+};
+
+type JobUpdateData = Parameters<typeof prisma.job.update>[0]["data"];
+
+const updateJobAndEmitStatus = async (jobId: string, data: JobUpdateData) => {
+    const updatedJob = await prisma.job.update({
+        where: { id: jobId },
+        data,
+    });
+
+    emitJobStatusUpdate({
+        jobId: updatedJob.id,
+        status: updatedJob.status,
+        retryCount: updatedJob.retry_count,
+        error: updatedJob.error,
+        result: updatedJob.result,
+        startedAt: updatedJob.started_at,
+        completedAt: updatedJob.completed_at,
+    });
+
+    return updatedJob;
 };
 
 export const jobWorker = new Worker(
@@ -37,25 +157,19 @@ export const jobWorker = new Worker(
     async (queueJob: Job<WorkerJobData>) => {
         const jobData = queueJob.data;
 
-        await prisma.job.update({
-            where: { id: jobData.id },
-            data: {
-                status: Status.PROCESSING,
-                started_at: new Date(),
-                error: null,
-            },
+        await updateJobAndEmitStatus(jobData.id, {
+            status: "PROCESSING",
+            started_at: new Date(),
+            error: null,
         });
 
         try {
             const result = await processJobByType(jobData);
 
-            await prisma.job.update({
-                where: { id: jobData.id },
-                data: {
-                    status: Status.COMPLETED,
-                    completed_at: new Date(),
-                    result,
-                },
+            await updateJobAndEmitStatus(jobData.id, {
+                status: "COMPLETED",
+                completed_at: new Date(),
+                result: result as object,
             });
 
             return result;
@@ -75,27 +189,21 @@ export const jobWorker = new Worker(
             }
 
             if (dbJob.retry_count < dbJob.max_retries) {
-                await prisma.job.update({
-                    where: { id: jobData.id },
-                    data: {
-                        status: Status.RETRYING,
-                        retry_count: {
-                            increment: 1,
-                        },
-                        error: errorMessage,
+                await updateJobAndEmitStatus(jobData.id, {
+                    status: "RETRYING",
+                    retry_count: {
+                        increment: 1,
                     },
+                    error: errorMessage,
                 });
 
                 throw error;
             }
 
-            await prisma.job.update({
-                where: { id: jobData.id },
-                data: {
-                    status: Status.FAILED,
-                    completed_at: new Date(),
-                    error: errorMessage,
-                },
+            await updateJobAndEmitStatus(jobData.id, {
+                status: "FAILED",
+                completed_at: new Date(),
+                error: errorMessage,
             });
 
             throw error;
