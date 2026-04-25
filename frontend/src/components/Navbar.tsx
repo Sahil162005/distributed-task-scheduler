@@ -1,11 +1,17 @@
 import { Link, useNavigate } from "react-router-dom";
+import { apiClient } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiClient.post("/api/auth/logout");
+    } catch {
+      // ignore errors, clear local state regardless
+    }
     setUser(null);
     navigate("/login", { replace: true });
   };

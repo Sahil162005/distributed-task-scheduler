@@ -3,7 +3,7 @@ import { getJobById } from "../services/job.service.js";
 import { getJobsByUserId } from "../services/job.service.js";
 import type{ Request ,Response } from "express";
 
-type JobType = "SEND_EMAIL" | "SEND_MESSAGE";
+type JobType = "SEND_EMAIL" | "SEND_MESSAGE" | "WEBHOOK_DELIVERY" | "WEBSITE_HEALTH_CHECK";
 
 export const CreateJob=async(req:Request,res:Response)=>{
     const user_id=req.user?.id

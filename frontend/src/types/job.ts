@@ -1,6 +1,6 @@
 export type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "RETRYING";
 
-export type JobType = "SEND_EMAIL" | "SEND_MESSAGE";
+export type JobType = "SEND_EMAIL" | "SEND_MESSAGE" | "WEBHOOK_DELIVERY" | "WEBSITE_HEALTH_CHECK";
 
 export type Job = {
   id: string;

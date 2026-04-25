@@ -47,12 +47,12 @@ io.on("connection", (socket) => {
         subscribeToJob(jobId);
     });
 
-    socket.on("subscribe", (payload: { jobId?: string }) => {
-        if (typeof payload?.jobId !== "string") {
-            return;
+    socket.on("subscribe", (payload: string | { jobId?: string }) => {
+        if (typeof payload === "string") {
+            subscribeToJob(payload);
+        } else if (typeof payload?.jobId === "string") {
+            subscribeToJob(payload.jobId);
         }
-
-        subscribeToJob(payload.jobId);
     });
 });
 

@@ -8,7 +8,7 @@ import { emitJobStatusUpdate } from "../socket/io.js";
 
 type WorkerJobData = {
     id: string;
-    job_type: "SEND_EMAIL" | "SEND_MESSAGE";
+    job_type: "SEND_EMAIL" | "SEND_MESSAGE" | "WEBHOOK_DELIVERY" | "WEBSITE_HEALTH_CHECK";
     payload: unknown;
 };
 
@@ -21,6 +21,18 @@ type SendEmailPayload = {
 type SendMessagePayload = {
     chatId: string;
     message: string;
+};
+
+type WebhookDeliveryPayload = {
+    url: string;
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+    headers: Record<string, string>;
+    body: string;
+};
+
+type WebsiteHealthCheckPayload = {
+    url: string;
+    expectedStatus: number;
 };
 
 const getRedisConnection = (): RedisOptions => {
@@ -84,6 +96,36 @@ const parseSendMessagePayload = (payload: unknown): SendMessagePayload => {
     };
 };
 
+const parseWebhookDeliveryPayload = (payload: unknown): WebhookDeliveryPayload => {
+    if (typeof payload !== "object" || payload === null) {
+        throw new Error("Invalid WEBHOOK_DELIVERY payload");
+    }
+    const value = payload as Record<string, unknown>;
+    if (typeof value.url !== "string" || typeof value.method !== "string") {
+        throw new Error("Invalid WEBHOOK_DELIVERY payload fields");
+    }
+    return {
+        url: value.url,
+        method: (value.method as WebhookDeliveryPayload["method"]) ?? "POST",
+        headers: (value.headers as Record<string, string>) ?? {},
+        body: typeof value.body === "string" ? value.body : "",
+    };
+};
+
+const parseWebsiteHealthCheckPayload = (payload: unknown): WebsiteHealthCheckPayload => {
+    if (typeof payload !== "object" || payload === null) {
+        throw new Error("Invalid WEBSITE_HEALTH_CHECK payload");
+    }
+    const value = payload as Record<string, unknown>;
+    if (typeof value.url !== "string") {
+        throw new Error("Invalid WEBSITE_HEALTH_CHECK payload fields");
+    }
+    return {
+        url: value.url,
+        expectedStatus: typeof value.expectedStatus === "number" ? value.expectedStatus : 200,
+    };
+};
+
 const processJobByType = async (jobData: WorkerJobData) => {
     switch (jobData.job_type) {
         case "SEND_EMAIL": {
@@ -124,6 +166,43 @@ const processJobByType = async (jobData: WorkerJobData) => {
             return {
                 message: "Message sent successfully",
                 chatId: payload.chatId,
+            };
+        }
+        case "WEBHOOK_DELIVERY": {
+            const payload = parseWebhookDeliveryPayload(jobData.payload);
+            const requestInit: RequestInit = {
+                method: payload.method,
+                headers: {
+                    "Content-Type": "application/json",
+                    ...payload.headers,
+                },
+            };
+
+            if (["POST", "PUT", "PATCH"].includes(payload.method)) {
+                requestInit.body = payload.body;
+            }
+
+            const response = await fetch(payload.url, requestInit);
+            return {
+                message: "Webhook delivered",
+                url: payload.url,
+                statusCode: response.status,
+                ok: response.ok,
+            };
+        }
+        case "WEBSITE_HEALTH_CHECK": {
+            const payload = parseWebsiteHealthCheckPayload(jobData.payload);
+            const startTime = Date.now();
+            const response = await fetch(payload.url, { method: "GET" });
+            const responseTime = Date.now() - startTime;
+            const isHealthy = response.status === payload.expectedStatus;
+            return {
+                message: isHealthy ? "Site is healthy" : "Site returned unexpected status",
+                url: payload.url,
+                statusCode: response.status,
+                expectedStatus: payload.expectedStatus,
+                responseTimeMs: responseTime,
+                healthy: isHealthy,
             };
         }
         default:

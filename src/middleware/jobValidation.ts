@@ -42,6 +42,23 @@ const validateSendMessage=(payload: unknown)=>{
     }
     return null
 }
+
+const validateWebhookDelivery = (payload: unknown): string | null => {
+    if (typeof payload !== "object" || payload === null) return "Fill all the fields";
+    const value = payload as Record<string, unknown>;
+    if (!value.url || typeof value.url !== "string") return "URL is required";
+    const validMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+    if (value.method && !validMethods.includes(value.method as string)) return "Invalid HTTP method";
+    return null;
+};
+
+const validateWebsiteHealthCheck = (payload: unknown): string | null => {
+    if (typeof payload !== "object" || payload === null) return "Fill all the fields";
+    const value = payload as Record<string, unknown>;
+    if (!value.url || typeof value.url !== "string") return "URL is required";
+    return null;
+};
+
 export const validateJobtype=(req:Request,res:Response,next:NextFunction)=>{
     const {payload,job_type}=req.body
     if(job_type==="SEND_MESSAGE"){
@@ -56,6 +73,14 @@ export const validateJobtype=(req:Request,res:Response,next:NextFunction)=>{
         if(result!==null){
         return res.status(400).json({message:`${result}`})
        }     
+    }
+    else if (job_type === "WEBHOOK_DELIVERY") {
+        const result = validateWebhookDelivery(payload);
+        if (result !== null) return res.status(400).json({ message: result });
+    }
+    else if (job_type === "WEBSITE_HEALTH_CHECK") {
+        const result = validateWebsiteHealthCheck(payload);
+        if (result !== null) return res.status(400).json({ message: result });
     }
     else{
         return res.status(400).json({message:"Invalid Job Type"})

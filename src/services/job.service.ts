@@ -1,7 +1,7 @@
 import prisma from "../database/prisma.js";
 import { jobQueue } from "../queue/queue.js";
 
-type JobType = "SEND_EMAIL" | "SEND_MESSAGE";
+type JobType = "SEND_EMAIL" | "SEND_MESSAGE" | "WEBHOOK_DELIVERY" | "WEBSITE_HEALTH_CHECK";
 
 export const createNewJob = async (user_id: string, payload: unknown, job_type: JobType) => {
     const job = await prisma.job.create({

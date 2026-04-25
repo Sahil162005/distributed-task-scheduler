@@ -1,6 +1,5 @@
 import express  from "express";
-import { SignUp } from "../controller/auth.controller.js";
-import { Login } from "../controller/auth.controller.js";
+import { SignUp, Login, Logout } from "../controller/auth.controller.js";
 import { ValidateSignup } from "../middleware/validationMiddleware.js";
 import { ValidateLogin } from "../middleware/validationMiddleware.js";
 
@@ -12,5 +11,6 @@ router.post('/signup',ValidateSignup,SignUp)
 //     next();
 // }, ValidateSignup, SignUp)
 router.post('/login',ValidateLogin,Login)
+router.post('/logout',Logout)
 
 export default router;

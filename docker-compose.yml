@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -46,6 +46,7 @@ services:
       REDIS_URL: redis://redis:6379
       PORT: 5007
       NODE_ENV: production
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
     ports:
       - "5007:5007"
     command: sh -c "npx prisma migrate deploy && npx prisma generate && npm run start"

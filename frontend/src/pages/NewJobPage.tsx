@@ -17,6 +17,12 @@ const NewJobPage = () => {
   const [body, setBody] = useState("");
   const [chatId, setChatId] = useState("");
   const [message, setMessage] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookMethod, setWebhookMethod] = useState<"GET" | "POST" | "PUT" | "PATCH" | "DELETE">("POST");
+  const [webhookBody, setWebhookBody] = useState("");
+  const [webhookHeaders, setWebhookHeaders] = useState("");
+  const [healthUrl, setHealthUrl] = useState("");
+  const [expectedStatus, setExpectedStatus] = useState("200");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +43,20 @@ const NewJobPage = () => {
       }
     }
 
+    if (jobType === "WEBHOOK_DELIVERY") {
+      if (!webhookUrl) {
+        return "URL is required";
+      }
+    }
+
+    if (jobType === "WEBSITE_HEALTH_CHECK") {
+      if (!healthUrl) {
+        return "URL is required";
+      }
+    }
+
     return null;
-  }, [jobType, to, subject, body, chatId, message]);
+  }, [jobType, to, subject, body, chatId, message, webhookUrl, healthUrl]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,13 +67,25 @@ const NewJobPage = () => {
       return;
     }
 
-    const payload =
-      jobType === "SEND_EMAIL"
-        ? { to, subject, body }
-        : {
-            chatId,
-            message,
-          };
+    const buildPayload = () => {
+      if (jobType === "SEND_EMAIL") return { to, subject, body };
+      if (jobType === "SEND_MESSAGE") return { chatId, message };
+      if (jobType === "WEBHOOK_DELIVERY") {
+        let parsedHeaders: Record<string, string> = {};
+        try {
+          parsedHeaders = webhookHeaders ? JSON.parse(webhookHeaders) : {};
+        } catch {
+          // ignore
+        }
+        return { url: webhookUrl, method: webhookMethod, headers: parsedHeaders, body: webhookBody };
+      }
+      if (jobType === "WEBSITE_HEALTH_CHECK") {
+        return { url: healthUrl, expectedStatus: parseInt(expectedStatus, 10) || 200 };
+      }
+      return {};
+    };
+
+    const payload = buildPayload();
 
     setLoading(true);
     try {
@@ -93,10 +123,12 @@ const NewJobPage = () => {
             >
               <option value="SEND_EMAIL">SEND_EMAIL</option>
               <option value="SEND_MESSAGE">SEND_MESSAGE</option>
+              <option value="WEBHOOK_DELIVERY">WEBHOOK_DELIVERY</option>
+              <option value="WEBSITE_HEALTH_CHECK">WEBSITE_HEALTH_CHECK</option>
             </select>
           </div>
 
-          {jobType === "SEND_EMAIL" ? (
+          {jobType === "SEND_EMAIL" && (
             <>
               <div>
                 <label htmlFor="to" className="mb-1 block text-sm font-medium text-slate-700">
@@ -134,7 +166,9 @@ const NewJobPage = () => {
                 />
               </div>
             </>
-          ) : (
+          )}
+
+          {jobType === "SEND_MESSAGE" && (
             <>
               <div>
                 <label htmlFor="chatId" className="mb-1 block text-sm font-medium text-slate-700">
@@ -156,6 +190,97 @@ const NewJobPage = () => {
                   rows={5}
                   value={message}
                   onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setMessage(event.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-brand-500 focus:ring"
+                />
+              </div>
+            </>
+          )}
+
+          {jobType === "WEBHOOK_DELIVERY" && (
+            <>
+              <div>
+                <label htmlFor="webhookUrl" className="mb-1 block text-sm font-medium text-slate-700">
+                  Target URL
+                </label>
+                <input
+                  id="webhookUrl"
+                  type="url"
+                  value={webhookUrl}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => setWebhookUrl(event.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-brand-500 focus:ring"
+                />
+              </div>
+              <div>
+                <label htmlFor="webhookMethod" className="mb-1 block text-sm font-medium text-slate-700">
+                  HTTP Method
+                </label>
+                <select
+                  id="webhookMethod"
+                  value={webhookMethod}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) => setWebhookMethod(event.target.value as typeof webhookMethod)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-brand-500 focus:ring"
+                >
+                  <option>GET</option>
+                  <option>POST</option>
+                  <option>PUT</option>
+                  <option>PATCH</option>
+                  <option>DELETE</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="webhookBody" className="mb-1 block text-sm font-medium text-slate-700">
+                  Request Body (JSON)
+                </label>
+                <textarea
+                  id="webhookBody"
+                  rows={4}
+                  value={webhookBody}
+                  onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setWebhookBody(event.target.value)}
+                  placeholder='{"key": "value"}'
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none ring-brand-500 focus:ring"
+                />
+              </div>
+              <div>
+                <label htmlFor="webhookHeaders" className="mb-1 block text-sm font-medium text-slate-700">
+                  Custom Headers (JSON, optional)
+                </label>
+                <textarea
+                  id="webhookHeaders"
+                  rows={2}
+                  value={webhookHeaders}
+                  onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setWebhookHeaders(event.target.value)}
+                  placeholder='{"Authorization": "Bearer token"}'
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none ring-brand-500 focus:ring"
+                />
+              </div>
+            </>
+          )}
+
+          {jobType === "WEBSITE_HEALTH_CHECK" && (
+            <>
+              <div>
+                <label htmlFor="healthUrl" className="mb-1 block text-sm font-medium text-slate-700">
+                  Website URL
+                </label>
+                <input
+                  id="healthUrl"
+                  type="url"
+                  value={healthUrl}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => setHealthUrl(event.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-brand-500 focus:ring"
+                />
+              </div>
+              <div>
+                <label htmlFor="expectedStatus" className="mb-1 block text-sm font-medium text-slate-700">
+                  Expected HTTP Status
+                </label>
+                <input
+                  id="expectedStatus"
+                  type="number"
+                  value={expectedStatus}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => setExpectedStatus(event.target.value)}
+                  placeholder="200"
                   className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-brand-500 focus:ring"
                 />
               </div>
