@@ -9,7 +9,19 @@ import NotFoundPage from "./pages/NotFoundPage";
 import SignupPage from "./pages/SignupPage";
 
 const App = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="glass-card w-full max-w-xl p-8">
+          <div className="h-6 w-36 animate-pulse rounded-md bg-slate-700" />
+          <div className="mt-4 h-4 w-56 animate-pulse rounded-md bg-slate-700" />
+          <div className="mt-8 h-36 animate-pulse rounded-xl bg-slate-700/70" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Routes>

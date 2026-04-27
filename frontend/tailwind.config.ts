@@ -5,12 +5,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: "#eef7ff",
-          100: "#d9ecff",
-          500: "#2563eb",
-          600: "#1d4ed8",
+        surface: "#0f172a",
+        card: "#1e293b",
+        stroke: "#334155",
+        accent: "#7c3aed",
+      },
+      fontFamily: {
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        glass: "0 16px 48px rgba(15, 23, 42, 0.4)",
+      },
+      keyframes: {
+        fadeUp: {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
+      },
+      animation: {
+        fadeUp: "fadeUp 420ms ease-out",
       },
     },
   },

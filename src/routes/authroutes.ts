@@ -6,10 +6,6 @@ import { ValidateLogin } from "../middleware/validationMiddleware.js";
 const router= express.Router();
 
 router.post('/signup',ValidateSignup,SignUp)
-// router.post('/signup', (req, res, next) => {
-//     console.log("Route hit");
-//     next();
-// }, ValidateSignup, SignUp)
 router.post('/login',ValidateLogin,Login)
 router.post('/logout',Logout)
 

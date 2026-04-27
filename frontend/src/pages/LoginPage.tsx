@@ -1,14 +1,14 @@
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { Bolt } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { apiClient } from "../api/client";
+import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
-import type { LoginResponse } from "../types/auth";
 import { getApiErrorMessage } from "../utils/errors";
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,64 +25,67 @@ const LoginPage = () => {
 
     setLoading(true);
     try {
-      const response = await apiClient.post<LoginResponse>("/api/auth/login", { email, password });
-      setUser(response.data.user);
+      await login(email.trim(), password);
+      toast.success("Welcome back");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      setError(getApiErrorMessage(err));
+      const message = getApiErrorMessage(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-        <p className="mt-1 text-sm text-slate-600">Log in to manage your jobs.</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.07)_1px,transparent_1px)] bg-[size:34px_34px]" />
+      <div className="glass-card relative z-10 w-full max-w-md p-7 sm:p-8">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-sm font-semibold text-violet-200">
+          <Bolt size={14} /> TaskFlow
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
-              Email
-            </label>
+        <h1 className="text-3xl font-bold text-slate-100">Sign in</h1>
+        <p className="mt-2 text-sm text-slate-300">Control and monitor distributed tasks in real time.</p>
+
+        <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+          <div className="relative">
             <input
               id="email"
               type="email"
               value={email}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-brand-500 focus:ring"
-              placeholder="testuser@gmail.com"
+              className="floating-input"
+              placeholder="Email"
             />
-          </div>
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
-              Password
+            <label htmlFor="email" className="floating-label">
+              Email
             </label>
+          </div>
+          <div className="relative">
             <input
               id="password"
               type="password"
               value={password}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-brand-500 focus:ring"
-              placeholder="********"
+              className="floating-input"
+              placeholder="Password"
             />
+            <label htmlFor="password" className="floating-label">
+              Password
+            </label>
           </div>
 
-          {error ? <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-brand-600 px-3 py-2 font-medium text-white hover:bg-brand-500 disabled:opacity-70"
-          >
-            {loading ? "Logging in..." : "Log in"}
+          <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
-        <p className="mt-4 text-sm text-slate-600">
+        <p className="mt-6 text-sm text-slate-300">
           Need an account?{" "}
-          <Link to="/signup" className="font-medium text-brand-600 hover:underline">
+          <Link to="/signup" className="font-semibold text-violet-300 hover:text-violet-200">
             Sign up
           </Link>
         </p>

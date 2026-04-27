@@ -6,6 +6,11 @@ type ErrorResponse = {
 
 export const getApiErrorMessage = (error: unknown) => {
   const axiosError = error as AxiosError<ErrorResponse>;
+
+  if (axiosError.code === "ERR_NETWORK") {
+    return "Cannot reach server. Please ensure backend is running.";
+  }
+
   const status = axiosError.response?.status;
   const message = axiosError.response?.data?.message;
 

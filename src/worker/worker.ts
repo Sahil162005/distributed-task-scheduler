@@ -2,7 +2,7 @@ import { Worker } from "bullmq";
 import type { Job } from "bullmq";
 import type { RedisOptions } from "ioredis";
 import TelegramBot from "node-telegram-bot-api";
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import prisma from "../database/prisma.js";
 import { emitJobStatusUpdate } from "../socket/io.js";
 
@@ -56,6 +56,15 @@ const getRedisConnection = (): RedisOptions => {
 };
 
 const redisConnection = getRedisConnection();
+
+const isTruthy = (value: string | undefined): boolean => {
+    if (!value) {
+        return false;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+};
 
 const parseSendEmailPayload = (payload: unknown): SendEmailPayload => {
     if (typeof payload !== "object" || payload === null) {
@@ -129,19 +138,38 @@ const parseWebsiteHealthCheckPayload = (payload: unknown): WebsiteHealthCheckPay
 const processJobByType = async (jobData: WorkerJobData) => {
     switch (jobData.job_type) {
         case "SEND_EMAIL": {
-            const resendApiKey = process.env.RESEND_API_KEY;
-            const fromEmail = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+            const smtpHost = process.env.SMTP_HOST ?? "smtp.gmail.com";
+            const smtpPort = Number(process.env.SMTP_PORT ?? "587");
+            const smtpUser = process.env.SMTP_USER;
+            const smtpPass = process.env.SMTP_PASS;
+            const fromEmail = process.env.SMTP_FROM ?? smtpUser;
+            const smtpSecure =
+                process.env.SMTP_SECURE !== undefined
+                    ? isTruthy(process.env.SMTP_SECURE)
+                    : smtpPort === 465;
 
-            if (!resendApiKey) {
-                throw new Error("RESEND_API_KEY is missing");
+            if (!smtpUser || !smtpPass) {
+                throw new Error("SMTP_USER or SMTP_PASS is missing");
+            }
+
+            if (!fromEmail) {
+                throw new Error("SMTP_FROM (or SMTP_USER) is required");
             }
 
             const payload = parseSendEmailPayload(jobData.payload);
-            const resend = new Resend(resendApiKey);
+            const transporter = nodemailer.createTransport({
+                host: smtpHost,
+                port: smtpPort,
+                secure: smtpSecure,
+                auth: {
+                    user: smtpUser,
+                    pass: smtpPass,
+                },
+            });
 
-            await resend.emails.send({
+            await transporter.sendMail({
                 from: fromEmail,
-                to: [payload.to],
+                to: payload.to,
                 subject: payload.subject,
                 html: payload.body,
             });

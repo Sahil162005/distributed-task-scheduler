@@ -21,6 +21,9 @@ export const CreateJob=async(req:Request,res:Response)=>{
     }
     catch(err: unknown){
         const errorMessage = err instanceof Error ? err.message : "Unable to create job";
+        if (errorMessage === "User not found. Please login again.") {
+            return res.status(401).json({ message: errorMessage });
+        }
         return res.status(400).json({message:errorMessage})
     }
 }
@@ -67,6 +70,9 @@ export const GetMyJobs = async (req: Request, res: Response) => {
         return res.status(200).json({ jobs });
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Unable to fetch jobs";
+        if (errorMessage === "User not found. Please login again.") {
+            return res.status(401).json({ message: errorMessage });
+        }
         return res.status(400).json({ message: errorMessage });
     }
 };

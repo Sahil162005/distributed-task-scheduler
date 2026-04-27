@@ -1,8 +1,5 @@
-import axios from "axios";
+import api from "../lib/axios";
 
-export const apiClient = axios.create({
-  baseURL: "",
-  withCredentials: true,
-});
+export const apiClient = api;
 
-axios.defaults.withCredentials = true;
+export default api;

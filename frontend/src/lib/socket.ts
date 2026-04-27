@@ -1,10 +1,22 @@
 import { io } from "socket.io-client";
 import type { JobStatusEvent } from "../types/job";
 
-const socket = io("http://localhost:5007", {
-  autoConnect: true,
+export const socket = io("http://localhost:5007", {
+  autoConnect: false,
   withCredentials: true,
 });
+
+export const connectSocket = () => {
+  if (!socket.connected) {
+    socket.connect();
+  }
+};
+
+export const disconnectSocket = () => {
+  if (socket.connected) {
+    socket.disconnect();
+  }
+};
 
 export const subscribeToJob = (jobId: string) => {
   socket.emit("subscribe:job", jobId);
