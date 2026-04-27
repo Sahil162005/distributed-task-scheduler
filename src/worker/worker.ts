@@ -165,6 +165,8 @@ const processJobByType = async (jobData: WorkerJobData) => {
                     user: smtpUser,
                     pass: smtpPass,
                 },
+                connectionTimeout: 10000, // 10 seconds
+                socketTimeout: 20000, // 20 seconds
             });
 
             await transporter.sendMail({
@@ -198,40 +200,58 @@ const processJobByType = async (jobData: WorkerJobData) => {
         }
         case "WEBHOOK_DELIVERY": {
             const payload = parseWebhookDeliveryPayload(jobData.payload);
-            const requestInit: RequestInit = {
-                method: payload.method,
-                headers: {
-                    "Content-Type": "application/json",
-                    ...payload.headers,
-                },
-            };
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-            if (["POST", "PUT", "PATCH"].includes(payload.method)) {
-                requestInit.body = payload.body;
+            try {
+                const requestInit: RequestInit = {
+                    method: payload.method,
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...payload.headers,
+                    },
+                    signal: controller.signal,
+                };
+
+                if (["POST", "PUT", "PATCH"].includes(payload.method)) {
+                    requestInit.body = payload.body;
+                }
+
+                const response = await fetch(payload.url, requestInit);
+                return {
+                    message: "Webhook delivered",
+                    url: payload.url,
+                    statusCode: response.status,
+                    ok: response.ok,
+                };
+            } finally {
+                clearTimeout(timeout);
             }
-
-            const response = await fetch(payload.url, requestInit);
-            return {
-                message: "Webhook delivered",
-                url: payload.url,
-                statusCode: response.status,
-                ok: response.ok,
-            };
         }
         case "WEBSITE_HEALTH_CHECK": {
             const payload = parseWebsiteHealthCheckPayload(jobData.payload);
-            const startTime = Date.now();
-            const response = await fetch(payload.url, { method: "GET" });
-            const responseTime = Date.now() - startTime;
-            const isHealthy = response.status === payload.expectedStatus;
-            return {
-                message: isHealthy ? "Site is healthy" : "Site returned unexpected status",
-                url: payload.url,
-                statusCode: response.status,
-                expectedStatus: payload.expectedStatus,
-                responseTimeMs: responseTime,
-                healthy: isHealthy,
-            };
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(payload.url, { 
+                    method: "GET",
+                    signal: controller.signal,
+                });
+                const responseTime = Date.now() - startTime;
+                const isHealthy = response.status === payload.expectedStatus;
+                return {
+                    message: isHealthy ? "Site is healthy" : "Site returned unexpected status",
+                    url: payload.url,
+                    statusCode: response.status,
+                    expectedStatus: payload.expectedStatus,
+                    responseTimeMs: responseTime,
+                    healthy: isHealthy,
+                };
+            } finally {
+                clearTimeout(timeout);
+            }
         }
         default:
             throw new Error("Unsupported job type");
